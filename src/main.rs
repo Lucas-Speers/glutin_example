@@ -1,3 +1,5 @@
+use std::{fs::File, io::Read};
+
 use glium::{glutin::surface::WindowSurface, winit::{self, application::ApplicationHandler, window::Window}, Program, Surface};
 
 #[macro_use]
@@ -14,37 +16,25 @@ struct App {
     pub window: Window,
     pub display: glium::Display<WindowSurface>,
     pub t: f32,
-    pub program: Option<Program>,
+    pub program: Program,
 }
 
+fn init_shaders(display: &glium::Display<WindowSurface>) -> Program {
+    let mut vertex_shader_src = String::new();
+    File::open("shader.vert")
+        .unwrap()
+        .read_to_string(&mut vertex_shader_src)
+        .unwrap();
+
+    let mut fragment_shader_src = String::new();
+    File::open("shader.frag")
+        .unwrap()
+        .read_to_string(&mut fragment_shader_src)
+        .unwrap();
+
+    glium::Program::from_source(display, &vertex_shader_src, &fragment_shader_src, None).unwrap()
+}
 impl App {
-    fn init_shaders(&mut self) {
-        let vertex_shader_src = r#"
-
-            in vec2 position;
-            in vec3 color;
-            out vec3 vertex_color;
-
-            uniform mat4 matrix;
-
-            void main() {
-                vertex_color = color;
-                gl_Position = matrix * vec4(position, 0.0, 1.0);
-            }
-        "#;
-
-        let fragment_shader_src = r#"
-
-            in vec3 vertex_color;
-            out vec4 color;
-
-            void main() {
-                color = vec4(vertex_color, 1.0);
-            }
-        "#;
-
-        self.program = Some(glium::Program::from_source(&self.display, vertex_shader_src, fragment_shader_src, None).unwrap());
-    }
     fn draw(&mut self) {
         let mut target = self.display.draw();
 
@@ -69,12 +59,8 @@ impl App {
             ]
         };
 
-        if self.program.is_none() {
-            self.init_shaders();
-        }
-
         target.clear_color(0.0, 0.0, 1.0, 1.0);
-        target.draw(&vertex_buffer, &indices, &self.program.as_ref().unwrap(), &uniforms, &Default::default()).unwrap();
+        target.draw(&vertex_buffer, &indices, &self.program, &uniforms, &Default::default()).unwrap();
 
         target.finish().unwrap();
     }
@@ -106,6 +92,8 @@ fn main() {
     let event_loop = winit::event_loop::EventLoop::builder().build().expect("Could not build event loop");
     let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new().with_title("Rust with Gluim go brrrrrrrrr").build(&event_loop);
 
-    let mut app = App { window, display, t: 0.0, program: None};
+    let program = init_shaders(&display);
+    
+    let mut app = App { window, display, t: 0.0, program};
     event_loop.run_app(&mut app).expect("event loop failed to run app");
 }
